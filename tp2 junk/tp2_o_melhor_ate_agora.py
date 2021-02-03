@@ -81,7 +81,7 @@ def motion_tracker(video):
 
     ret, frame = cap.read()
     while cap.isOpened():
-        aof = frame[aof_points[0]:aof_points[1], aof_points[2]:aof_points[3]]
+        aof = frame[aof_points[2]:aof_points[3], aof_points[0]:aof_points[1]]
 
         mask = object_detector.apply(aof)
         median = cv2.medianBlur(mask, 255 // 26)
