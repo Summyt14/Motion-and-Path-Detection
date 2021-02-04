@@ -31,7 +31,7 @@ def choose_area_of_effect():
             break
 
     # Start Width, End Width, Start Height, End Height
-    aof_points = [aof_points[0][0]] + [aof_points[1][1]] + [aof_points[0][1]] + [aof_points[1][0]]
+    aof_points = [aof_points[0][0]] + [aof_points[1][0]] + [aof_points[0][1]] + [aof_points[1][1]]
     cv2.destroyAllWindows()
 
 
