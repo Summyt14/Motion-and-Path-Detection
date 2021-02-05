@@ -1,3 +1,5 @@
+from scipy.spatial import distance as dist
+
 from cv2 import cv2
 import numpy as np
 
@@ -7,8 +9,14 @@ aof = None
 aof_points = []
 classes=['Person', 'Car', 'Other']
 classColor = [(0, 0, 255), (0, 255, 0), (255, 0, 0)]
-trajetoria = {0:[], 1:[], 2:[]}
-lastPos=[]
+trajetoria = {}
+lastPos={}
+nextObjectID = 0
+disappeared = {}
+maxDisappeared = 150
+ind = -4
+id_n = 0
+
 
 def draw_rect(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
@@ -42,69 +50,114 @@ def choose_area_of_effect():
     cv2.destroyAllWindows()
 
 
-def classify_contour(frame, aof, contour):
-    area = cv2.contourArea(contour)
+def define_type(x,y,w, h, id, outro):
+    global trajetoria, aof
+    #  ====== Os ifs podem precisar de mais condicoes ======
+    if h > w:
+        cv2.putText(frame, classes[0], (25, 25),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, classColor[0], 2, cv2.LINE_AA)
+        cv2.rectangle(aof, (x, y), (x + w, y + h), classColor[0], 2)
+        cv2.putText(aof, str(id), (x + (w // 2), h + y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, classColor[0],  2, cv2.LINE_AA)
 
-    if area > 400:
+    elif w > h:
+        cv2.putText(frame, classes[1], (25, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, classColor[1], 2, cv2.LINE_AA)
+        cv2.rectangle(aof, (x, y), (x + w, y + h), classColor[1], 2)
+        cv2.putText(aof, str(id), (x + (w // 2), h + y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, classColor[1], 2, cv2.LINE_AA)
+
+    elif outro:
+        cv2.putText(frame, classes[2], (25, 75),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, classColor[2], 2, cv2.LINE_AA)
+        cv2.rectangle(aof, (x, y), (x + w, y + h), classColor[2], 2)
+        cv2.drawMarker(aof, ((x + w) // 2, (y + h) // 2), classColor[2], cv2.MARKER_STAR, 1, 1)
+        cv2.putText(aof, str(id), (x + (w // 2), h + y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, classColor[2], 2, cv2.LINE_AA)
+
+    if trajetoria.get(id) is not None:
+        trajetoria[id].append((x + (w // 2), h + y))
+    else:
+        trajetoria[id] = [(int(x + (w // 2)), int(h + y))]
+
+
+def classify_contour(contours):
+    global ind, id_n
+    inputCentroids = np.zeros((len(contours), 2), dtype='int')
+    idx = -1
+
+    for contour in contours:
+        area = cv2.contourArea(contour)
         (x, y, w, h) = cv2.boundingRect(contour)
-        # save_trajectories(x,y)
-        #  ====== Os ifs podem precisar de mais condicoes ======
-        if h > w:
-            cv2.putText(frame, classes[0], (25, 25),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, classColor[0], 2, cv2.LINE_AA)
-            cv2.rectangle(aof, (x, y), (x + w, y + h), classColor[0], 2)
-            cv2.circle(aof, (x+(w//2), h+y), 1, (0,0,0), 10)
-            trajetoria[0].append((x+(w//2), h+y))
+        idx += 1
 
-        elif w > h:
-            cv2.putText(frame, classes[1], (25, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, classColor[1], 2, cv2.LINE_AA)
-            cv2.rectangle(aof, (x, y), (x + w, y + h), classColor[1], 2)
-            cv2.circle(aof, (x+(w//2), h+y), 1, (0,0,0), 10)
-            trajetoria[1].append((x+(w//2), h+y))
+        if area > 400 and ind > -1:
+            centroid_X = x+(w//2)
+            centroid_Y = y+(h//2)
+            print(idx)
+            inputCentroids[idx] = (centroid_X, centroid_Y)
+            print(inputCentroids)
 
-        else:
-            cv2.putText(frame, classes[2], (25, 75),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, classColor[2], 2, cv2.LINE_AA)
-            cv2.rectangle(aof, (x, y), (x + w, y + h), classColor[2], 2)
-            cv2.drawMarker(aof, ((x+w)//2, (y+h)//2), classColor[2],  cv2.MARKER_STAR, 1, 1)
-            cv2.circle(aof, (x+(w//2), h+y), 1, (0,0,0), 10)
-            trajetoria[2].append((x+(w//2), h+y))
+            if len(lastPos) == 0:
+                for j in range(0, len(inputCentroids)):
+                    lastPos[id_n] = (centroid_X, centroid_Y)
+                    disappeared[id_n] = 0
+                    id_n+=1
+                    define_type(x, y, w, h, 0, False)
+            else:
+                id_s = list(disappeared.keys())
+                encontrado = False
+                for id in id_s:
+                    elem = lastPos.get(id)
+                    for i in range(-30, 30):
+                        for j in range(-30, 30):
+                            if elem == (centroid_X + i, centroid_Y + j):
+                                lastPos[id] = (centroid_X, centroid_Y)
+                                disappeared[id] = 0
+                                encontrado = True
+                                define_type(x, y, w, h, id, False)
+                                break
+                        if encontrado:
+                            break
+                    if encontrado:
+                        break
+                if not encontrado:
+                    id_n = list(lastPos.keys())[-1] + 1
+                    lastPos[id_n] = (centroid_X, centroid_Y)
+                    disappeared[id_n] = 0
+                    define_type(x, y, w, h, id_n, False)
+        ind+=1
+
+def save_trajectories(spot):
+    global nextObjectID, lastPos, trajetoria
+    lastPos[nextObjectID] = spot
+    disappeared[nextObjectID] = 0
+    nextObjectID+=1
 
 
-def save_trajectories(x,y):
-    # this is not working
-    repetido=False
-    id=-1
-    for elem in lastPos:
-        for i in range(-10, 10):
-            for j in range(-10, 10):
-                if elem == (x + i,y + j):
-                    found = (x + i, y + j)
-                    id = lastPos.index(elem)
-                    lastPos[id] = found
-                    print(id, x,y)
-                    repetido=True
-                    break
-    if not repetido:
-        lastPos.append((x,y))
-        id = lastPos.index((x,y))
-    # confirmar se é o msm objeto que nao foi detetado numa frame
-    # guardar numa variavel global
-    return None
+def remove_trajectories(id):
+    global lastPos, disappeared, trajetoria
+    if disappeared.get(id) is not None:
+        disappeared.pop(id)
+    if trajetoria.get(id) is not None:
+        trajetoria.pop(id)
 
 
 def show_trajectories():
     global trajetoria, aof
-    for j in range(len(trajetoria.items())):
+    if len(trajetoria) == 0:
+        return None
+
+    for j in trajetoria.keys():
         for i in range(1, len(trajetoria.get(j))):
-            if trajetoria.get(j)[i - 1] is None or trajetoria.get(j)[i] is None:
+            if trajetoria.get(j)[i] is None or trajetoria.get(j)[i-1] is None:
                 continue
-            cv2.line(aof, trajetoria.get(j)[i-1], trajetoria.get(j)[i], (j*100,0,j*2+50), 2)
+            cv2.line(aof, trajetoria.get(j)[i-1], trajetoria.get(j)[i], (j*30,250,j*2+100), 2)
+
+    for m in list(disappeared.keys()):
+        disappeared[m] = disappeared[m] + 1
+        if disappeared[m] > maxDisappeared:
+            remove_trajectories(m)
     # mostrar as trajetorias (uma linha a unir os pontos) de cada objeto
     # uma cor com id para cada um
     # mostrar trajetoria como se fosse video ou ja tudo desenhado?
-    return None
 
 
 def motion_tracker(video):
@@ -130,8 +183,7 @@ def motion_tracker(video):
         closing = cv2.morphologyEx(dilation, cv2.MORPH_CLOSE, kernel2)
         contours, _ = cv2.findContours(closing, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-        for contour in contours:
-            classify_contour(frame, aof, contour)
+        classify_contour(contours)
 
         show_trajectories()
         cv2.imshow('Frame', frame)
