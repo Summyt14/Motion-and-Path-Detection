@@ -146,29 +146,44 @@ def classify_contour(contours):
             # Calcula-se os centroides do objeto
             centroid_X = x + (w // 2)
             centroid_Y = y + (h // 2)
+            # Adiciona-se o centroide a lista de centroides de regioes ativas
             centroids[idx] = (centroid_X, centroid_Y)
-
+            # Se não houver nenhuma região ativa na cena
             if len(last_pos) == 0:
                 for _ in centroids:
+                    # Classificacao
                     obj_type = define_type(x, y, w, h, new_obj_id)
+                    # Adiciona-se a lista de posicoes das regioes ativas
                     last_pos[new_obj_id] = (centroid_X, centroid_Y, obj_type)
+                    # Coloca-se o tempo de desaparecimento respetivo a zero
                     disappeared_timer[new_obj_id] = 0
+                    # Adiciona-se a posicao a lista de trajetorias
                     save_trajectories(x, y, w, h, new_obj_id)
-
+            # Caso a cena tenha regioes ativas
             else:
+                # Flag de encontrar correspondencia com regiao ativa
                 found = False
+                # Procurar em cada elemento das regioes ativas
                 for obj_id in list(disappeared_timer.keys()):
                     elem = last_pos.get(obj_id)
-                    # obj_type = define_type(x, y, w, h, obj_id, False)
+                    # Se em x
                     for i in range(-50, 50):
+                        # E em y
                         for j in range(-20, 20):
+                            # Se um dos elementos esta a uma distancia proxima da atual, e o mesmo elemento
                             if elem[0] == centroid_X + i and elem[1] == centroid_Y + j:
+                                # Entao reinicia-se o respetivo timer
                                 disappeared_timer[obj_id] = 0
+                                # Se a posicao for nas margens do campo de visao da camera
                                 if centroid_X + i < 17 or centroid_X + i > 750:
+                                    # Retira-se o elemento, pois saiu do campo de visao
                                     remove_trajectories(obj_id)
                                     return
+                                # Mudanca do valor booleano da flag pois houve correspondencia
                                 found = True
+                                # Classificacao do elemento
                                 define_type(x, y, w, h, obj_id)
+                                # Guardar a sua posicao atual
                                 last_pos[obj_id] = (centroid_X, centroid_Y, elem[2])
                                 save_trajectories(x, y, w, h, obj_id)
                                 break
@@ -176,7 +191,9 @@ def classify_contour(contours):
                             break
                     if found:
                         break
+                # Se nao tiver havido correspondencia, significa que e um novo objeto
                 if not found:
+                    # Adiciona-se as estruturas de dados, com um novo identificador
                     new_obj_id = list(last_pos.keys())[-1] + 1
                     if centroid_X < 17 or centroid_X > 750:
                         remove_trajectories(new_obj_id)
