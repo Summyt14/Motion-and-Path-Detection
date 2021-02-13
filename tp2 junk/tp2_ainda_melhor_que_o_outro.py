@@ -245,6 +245,7 @@ def motion_tracker(video):
             break
 
     cap.release()
+    out.release()
     cv2.destroyAllWindows()
 
 
