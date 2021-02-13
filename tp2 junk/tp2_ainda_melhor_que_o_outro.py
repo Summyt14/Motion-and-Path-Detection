@@ -211,6 +211,12 @@ def motion_tracker(video):
     ret, frame = cap.read()
     backup_frame = frame.copy()
 
+    frame_width = int(cap.get(3))
+    frame_height = int(cap.get(4))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter("output.mp4", fourcc, fps, (frame_width, frame_height))
+    
     choose_area_of_effect()
 
     object_detector = cv2.createBackgroundSubtractorKNN(detectShadows=True)
@@ -231,6 +237,8 @@ def motion_tracker(video):
         cv2.imshow('Frame', frame)
         cv2.imshow('Mask', closing)
         cv2.imshow('AOF', aof)
+        out.write(frame)
+        
         ret, frame = cap.read()
 
         if cv2.waitKey(40) == 27 or frame is None:  # Escape Btn
