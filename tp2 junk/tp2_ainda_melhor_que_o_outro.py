@@ -12,8 +12,7 @@ trajectories = {}
 trajectories_color = {}
 last_pos = {}
 disappeared_timer = {}
-max_time_disappeared = 115
-max_trajectory_size = 150
+max_time_disappeared = 114
 starting_frames = -4
 new_obj_id = 0
 
